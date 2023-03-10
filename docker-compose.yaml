@@ -1,0 +1,101 @@
+version: '3.9'
+
+services:
+  auth_db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: mydb
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydb
+    ports:
+      - '5433:5432'
+    # volumes:
+      # - my-postgres:/var/lib/postgresql/data
+
+  backend_db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: mydb
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydb
+    ports:
+      - '5432:5432'
+    # volumes:
+    #   - my-postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis:latest
+    restart: always
+    command: redis-server --appendonly yes
+    environment:
+      REDIS_HOST: localhost
+    volumes:
+      - my-redis:/data
+    ports:
+      - '6379:6379'
+
+  auth:
+    build: ./auth-service
+    restart: always
+    environment:
+      NODE_ENV: development
+      DB_HOST: auth_db
+      DB_PORT: 5432
+      DB_DB: mydb
+      DB_USER: mydb
+      DB_PASSWORD: mypassword
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      JWT_SECRET: mysecret
+    ports:
+      - '4000:4000'
+    depends_on:
+      - auth_db
+      - redis
+
+  # backend:
+  #   build: ./todo-app
+  #   restart: always
+  #   environment:
+  #     NODE_ENV: development
+  #     DB_HOST: backend_db
+  #     DB_PORT: 5432
+  #     DB_DB: mydb
+  #     DB_USER: myuser
+  #     DB_PASSWORD: mypassword
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #   ports:
+  #     - '6000:6000'
+  #   depends_on:
+  #     - backend_db
+  auth_migration:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile.migration
+      args:
+        - no_cache=1
+    environment:
+      DB_USER: mydb
+      DB_PASSWORD: mypassword
+      DB_HOST: auth_db
+      DB_PORT: 5432
+      DB_NAME: mydb
+
+  # backend_migration:
+  #   build:
+  #     context: ./todo-app
+  #     dockerfile: Dockerfile.migration
+  #     args:
+  #       - no_cache=1
+  #   environment:
+  #     DB_USER: mydb
+  #     DB_PASSWORD: mypassword
+  #     DB_HOST: backend_db
+  #     DB_PORT: 5432
+  #     DB_NAME: mydb
+volumes:
+  my-postgres:
+  my-redis:
