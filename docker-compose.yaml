@@ -7,9 +7,14 @@ services:
     environment:
       POSTGRES_USER: mydb
       POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydb
-    ports:
-      - '5433:5432'
+      POSTGRES_DB: authdb
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "mydb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # ports:
+    #   - '5433:5432'
     # volumes:
       # - my-postgres:/var/lib/postgresql/data
 
@@ -19,9 +24,14 @@ services:
     environment:
       POSTGRES_USER: mydb
       POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydb
-    ports:
-      - '5432:5432'
+      POSTGRES_DB: backenddb
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "mydb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # ports:
+    #   - '5433:5432'
     # volumes:
     #   - my-postgres:/var/lib/postgresql/data
 
@@ -29,10 +39,10 @@ services:
     image: redis:latest
     restart: always
     command: redis-server --appendonly yes
-    environment:
-      REDIS_HOST: localhost
-    volumes:
-      - my-redis:/data
+    # environment:
+    #   REDIS_HOST: localhost
+    # volumes:
+    #   - my-redis:/data
     ports:
       - '6379:6379'
 
@@ -43,59 +53,65 @@ services:
       NODE_ENV: development
       DB_HOST: auth_db
       DB_PORT: 5432
-      DB_DB: mydb
+      DB_NAME: authdb
       DB_USER: mydb
       DB_PASSWORD: mypassword
-      REDIS_HOST: localhost
+      REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: mysecret
     ports:
-      - '4000:4000'
+      - '5000:4000'
     depends_on:
       - auth_db
       - redis
 
-  # backend:
-  #   build: ./todo-app
-  #   restart: always
-  #   environment:
-  #     NODE_ENV: development
-  #     DB_HOST: backend_db
-  #     DB_PORT: 5432
-  #     DB_DB: mydb
-  #     DB_USER: myuser
-  #     DB_PASSWORD: mypassword
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: 6379
-  #   ports:
-  #     - '6000:6000'
-  #   depends_on:
-  #     - backend_db
+  backend:
+    build: ./finalEvalBE
+    restart: always
+    environment:
+      NODE_ENV: development
+      DB_HOST: backend_db
+      DB_PORT: 5432
+      DB_NAME: backenddb
+      DB_USER: mydb
+      DB_PASSWORD: mypassword
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - '8080:8080'
+    depends_on:
+      - backend_db
   auth_migration:
     build:
       context: ./auth-service
       dockerfile: Dockerfile.migration
       args:
         - no_cache=1
+    depends_on:
+      auth_db:
+        condition: service_healthy
     environment:
       DB_USER: mydb
       DB_PASSWORD: mypassword
       DB_HOST: auth_db
       DB_PORT: 5432
-      DB_NAME: mydb
+      DB_NAME: authdb
 
-  # backend_migration:
-  #   build:
-  #     context: ./todo-app
-  #     dockerfile: Dockerfile.migration
-  #     args:
-  #       - no_cache=1
-  #   environment:
-  #     DB_USER: mydb
-  #     DB_PASSWORD: mypassword
-  #     DB_HOST: backend_db
-  #     DB_PORT: 5432
-  #     DB_NAME: mydb
+  backend_migration:
+    build:
+      context: ./finalEvalBE
+      dockerfile: Dockerfile.migration
+      args:
+        - no_cache=1
+    depends_on:
+      backend_db:
+        condition: service_healthy
+    environment:
+      DB_USER: mydb
+      DB_PASSWORD: mypassword
+      DB_HOST: backend_db
+      DB_PORT: 5432
+      DB_NAME: backenddb
 volumes:
   my-postgres:
   my-redis:
